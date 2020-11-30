@@ -1,11 +1,14 @@
 package it.unibo.oop.lab.lambda.ex02;
 
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -13,111 +16,122 @@ import java.util.stream.Stream;
  */
 public final class MusicGroupImpl implements MusicGroup {
 
-    private final Map<String, Integer> albums = new HashMap<>();
-    private final Set<Song> songs = new HashSet<>();
+	private final Map<String, Integer> albums = new HashMap<>();
+	private final Set<Song> songs = new HashSet<>();
 
-    @Override
-    public void addAlbum(final String albumName, final int year) {
-        this.albums.put(albumName, year);
-    }
+	@Override
+	public void addAlbum(final String albumName, final int year) {
+		this.albums.put(albumName, year);
+	}
 
-    @Override
-    public void addSong(final String songName, final Optional<String> albumName, final double duration) {
-        if (albumName.isPresent() && !this.albums.containsKey(albumName.get())) {
-            throw new IllegalArgumentException("invalid album name");
-        }
-        this.songs.add(new MusicGroupImpl.Song(songName, albumName, duration));
-    }
+	@Override
+	public void addSong(final String songName, final Optional<String> albumName, final double duration) {
+		if (albumName.isPresent() && !this.albums.containsKey(albumName.get())) {
+			throw new IllegalArgumentException("invalid album name");
+		}
+		this.songs.add(new MusicGroupImpl.Song(songName, albumName, duration));
+	}
 
-    @Override
-    public Stream<String> orderedSongNames() {
-        return null;
-    }
+	@Override
+	public Stream<String> orderedSongNames() {
+		return this.songs.stream().sorted((a, b) -> (a.getSongName().compareTo(b.getSongName())))
+				.map(s -> s.getSongName());
+	}
 
-    @Override
-    public Stream<String> albumNames() {
-        return null;
-    }
+	@Override
+	public Stream<String> albumNames() {
+		return this.albums.keySet().stream();
+	}
 
-    @Override
-    public Stream<String> albumInYear(final int year) {
-        return null;
-    }
+	@Override
+	public Stream<String> albumInYear(final int year) {
+		return this.albums.entrySet().stream().filter(a -> a.getValue() == year).map(a -> a.getKey());
+	}
 
-    @Override
-    public int countSongs(final String albumName) {
-        return -1;
-    }
+	@Override
+	public int countSongs(final String albumName) {
+		return (int) this.songs.stream().filter(s -> s.getAlbumName().isPresent())
+				.filter(s -> s.getAlbumName().get().equals(albumName)).count();
+	}
 
-    @Override
-    public int countSongsInNoAlbum() {
-        return -1;
-    }
+	@Override
+	public int countSongsInNoAlbum() {
+		return (int) this.songs.stream().filter(s -> s.getAlbumName().isEmpty()).count();
+	}
 
-    @Override
-    public OptionalDouble averageDurationOfSongs(final String albumName) {
-        return null;
-    }
+	@Override
+	public OptionalDouble averageDurationOfSongs(final String albumName) {
+		return this.songs.stream().filter(s -> s.getAlbumName().isPresent())
+				.filter(s -> s.getAlbumName().get().equals(albumName)).mapToDouble(s -> s.getDuration()).average();
+		// return
+		// this.songs.stream().filter(s->s.getAlbumName().get().equals(albumName)).mapToDouble(Song::getDuration).average();
+	}
 
-    @Override
-    public Optional<String> longestSong() {
-        return null;
-    }
+	@Override
+	public Optional<String> longestSong() {
 
-    @Override
-    public Optional<String> longestAlbum() {
-        return null;
-    }
+		return this.songs.stream()
+				.max((s1, s2) -> Double.compare(Double.valueOf(s1.getDuration()), Double.valueOf(s2.getDuration())))
+				.map(Song::getSongName);
+	}
 
-    private static final class Song {
+	@Override
+	public Optional<String> longestAlbum() {
+		return this.songs.stream().filter(a -> !a.getAlbumName().isEmpty())
+				.collect(Collectors.groupingBy(Song::getAlbumName, Collectors.summingDouble(Song::getDuration)))
+				.entrySet().stream().collect(Collectors.maxBy(Comparator.comparingDouble(Entry::getValue)))
+				.flatMap(Entry::getKey);
+	}
 
-        private final String songName;
-        private final Optional<String> albumName;
-        private final double duration;
-        private int hash;
+	private static final class Song {
 
-        Song(final String name, final Optional<String> album, final double len) {
-            super();
-            this.songName = name;
-            this.albumName = album;
-            this.duration = len;
-        }
+		private final String songName;
+		private final Optional<String> albumName;
+		private final double duration;
+		private int hash;
 
-        public String getSongName() {
-            return songName;
-        }
+		Song(final String name, final Optional<String> album, final double len) {
+			super();
+			this.songName = name;
+			this.albumName = album;
+			this.duration = len;
+		}
 
-        public Optional<String> getAlbumName() {
-            return albumName;
-        }
+		public String getSongName() {
+			return songName;
+		}
 
-        public double getDuration() {
-            return duration;
-        }
+		public Optional<String> getAlbumName() {
+			return albumName;
+		}
 
-        @Override
-        public int hashCode() {
-            if (hash == 0) {
-                hash = songName.hashCode() ^ albumName.hashCode() ^ Double.hashCode(duration);
-            }
-            return hash;
-        }
+		public double getDuration() {
+			return duration;
+		}
 
-        @Override
-        public boolean equals(final Object obj) {
-            if (obj instanceof Song) {
-                final Song other = (Song) obj;
-                return albumName.equals(other.albumName) && songName.equals(other.songName)
-                        && duration == other.duration;
-            }
-            return false;
-        }
+		@Override
+		public int hashCode() {
+			if (hash == 0) {
+				hash = songName.hashCode() ^ albumName.hashCode() ^ Double.hashCode(duration);
+			}
+			return hash;
+		}
 
-        @Override
-        public String toString() {
-            return "Song [songName=" + songName + ", albumName=" + albumName + ", duration=" + duration + "]";
-        }
+		@Override
+		public boolean equals(final Object obj) {
+			if (obj instanceof Song) {
+				final Song other = (Song) obj;
+				return albumName.equals(other.albumName) && songName.equals(other.songName)
+						&& duration == other.duration;
+			}
+			return false;
+		}
 
-    }
+		@Override
+		public String toString() {
+			return "Song [songName=" + songName + ", albumName=" + albumName + ", duration=" + duration + "]";
+		}
+
+	}
 
 }
